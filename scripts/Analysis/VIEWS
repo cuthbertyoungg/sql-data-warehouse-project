@@ -1,0 +1,157 @@
+-- =============================================================
+-- 12 | CUSTOMER REPORT VIEW
+-- Consolidates key customer metrics, segments, and KPIs.
+-- =============================================================
+
+DROP VIEW IF EXISTS gold.report_customers;
+
+CREATE VIEW gold.report_customers AS
+
+WITH base_query AS (
+    -- Core columns from fact_sales + dim_customers
+    SELECT
+        f.order_number,
+        f.product_key,
+        f.order_date,
+        f.sales_amount,
+        f.quantity,
+        c.customer_key,
+        c.customer_number,
+        CONCAT(c.first_name, ' ', c.last_name)                    AS customer_name,
+        EXTRACT(YEAR FROM AGE(CURRENT_DATE, c.birthdate))::INT     AS age
+    FROM gold.fact_sales f
+    LEFT JOIN gold.dim_customers c ON c.customer_key = f.customer_key
+    WHERE f.order_date IS NOT NULL
+),
+
+customer_aggregation AS (
+    -- Summarize metrics at the customer level
+    SELECT
+        customer_key,
+        customer_number,
+        customer_name,
+        age,
+        COUNT(DISTINCT order_number)                                            AS total_orders,
+        SUM(sales_amount)                                                       AS total_sales,
+        SUM(quantity)                                                           AS total_quantity,
+        COUNT(DISTINCT product_key)                                             AS total_products,
+        MAX(order_date)                                                         AS last_order_date,
+        ( EXTRACT(YEAR  FROM AGE(MAX(order_date), MIN(order_date))) * 12
+        + EXTRACT(MONTH FROM AGE(MAX(order_date), MIN(order_date))) )::INT      AS lifespan
+    FROM base_query
+    GROUP BY customer_key, customer_number, customer_name, age
+)
+
+SELECT
+    customer_key,
+    customer_number,
+    customer_name,
+    age,
+    CASE
+        WHEN age < 20                  THEN 'Under 20'
+        WHEN age BETWEEN 20 AND 29     THEN '20-29'
+        WHEN age BETWEEN 30 AND 39     THEN '30-39'
+        WHEN age BETWEEN 40 AND 49     THEN '40-49'
+        ELSE '50 and above'
+    END AS age_group,
+    CASE
+        WHEN lifespan >= 12 AND total_sales > 5000  THEN 'VIP'
+        WHEN lifespan >= 12 AND total_sales <= 5000 THEN 'Regular'
+        ELSE 'New'
+    END AS customer_segment,
+    last_order_date,
+    ( EXTRACT(YEAR  FROM AGE(CURRENT_DATE, last_order_date)) * 12
+    + EXTRACT(MONTH FROM AGE(CURRENT_DATE, last_order_date)) )::INT  AS recency,
+    total_orders,
+    total_sales,
+    total_quantity,
+    total_products,
+    lifespan,
+    -- Average order value (AOV)
+    CASE WHEN total_orders = 0 THEN 0
+         ELSE total_sales / total_orders
+    END AS avg_order_value,
+    -- Average monthly spend
+    CASE WHEN lifespan = 0 THEN total_sales
+         ELSE total_sales / lifespan
+    END AS avg_monthly_spend
+FROM customer_aggregation;
+
+
+-- =============================================================
+-- 13 | PRODUCT REPORT VIEW
+-- Consolidates key product metrics, segments, and KPIs.
+-- =============================================================
+
+DROP VIEW IF EXISTS gold.report_products;
+
+CREATE VIEW gold.report_products AS
+
+WITH base_query AS (
+    -- Core columns from fact_sales + dim_products
+    SELECT
+        f.order_number,
+        f.order_date,
+        f.customer_key,
+        f.sales_amount,
+        f.quantity,
+        p.product_key,
+        p.product_name,
+        p.category,
+        p.subcategory,
+        p.cost
+    FROM gold.fact_sales f
+    LEFT JOIN gold.dim_products p ON f.product_key = p.product_key
+    WHERE f.order_date IS NOT NULL
+),
+
+product_aggregations AS (
+    -- Summarize metrics at the product level
+    SELECT
+        product_key,
+        product_name,
+        category,
+        subcategory,
+        cost,
+        MAX(order_date)                                                             AS last_sale_date,
+        ( EXTRACT(YEAR  FROM AGE(MAX(order_date), MIN(order_date))) * 12
+        + EXTRACT(MONTH FROM AGE(MAX(order_date), MIN(order_date))) )::INT          AS lifespan,
+        COUNT(DISTINCT order_number)                                                AS total_orders,
+        COUNT(DISTINCT customer_key)                                                AS total_customers,
+        SUM(sales_amount)                                                           AS total_sales,
+        SUM(quantity)                                                               AS total_quantity,
+        ROUND(AVG(sales_amount::FLOAT / NULLIF(quantity, 0))::NUMERIC, 1)          AS avg_selling_price
+    FROM base_query
+    GROUP BY product_key, product_name, category, subcategory, cost
+)
+
+SELECT
+    product_key,
+    product_name,
+    category,
+    subcategory,
+    cost,
+    last_sale_date,
+    ( EXTRACT(YEAR  FROM AGE(CURRENT_DATE, last_sale_date)) * 12
+    + EXTRACT(MONTH FROM AGE(CURRENT_DATE, last_sale_date)) )::INT  AS recency_in_months,
+    CASE
+        WHEN total_sales > 50000  THEN 'High-Performer'
+        WHEN total_sales >= 10000 THEN 'Mid-Range'
+        ELSE 'Low-Performer'
+    END AS product_segment,
+    lifespan,
+    total_orders,
+    total_sales,
+    total_quantity,
+    total_customers,
+    avg_selling_price,
+    -- Average order revenue (AOR)
+    CASE WHEN total_orders = 0 THEN 0
+         ELSE total_sales / total_orders
+    END AS avg_order_revenue,
+    -- Average monthly revenue
+    CASE WHEN lifespan = 0 THEN total_sales
+         ELSE total_sales / lifespan
+    END AS avg_monthly_revenue
+FROM product_aggregations;
+
