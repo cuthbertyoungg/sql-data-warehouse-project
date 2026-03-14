@@ -7,6 +7,23 @@ This repository contains a **learning project** focused on building a simple dat
 
 ---
 
+# Tools
+
+- **PostgreSQL** – Data warehouse database
+- **DBeaver** – Database client
+- **Git & GitHub** – Version control
+- **Draw.io** – Architecture diagrams
+
+---
+
+# Analytical Focus
+
+Example analyses performed on the warehouse include:
+
+- Customer behavior analysis
+- Product performance analysis
+- Sales trend analysis
+
 # Architecture
 
 The warehouse follows the **Medallion Architecture**, consisting of three layers designed to progressively refine data for analytics.
@@ -78,23 +95,5 @@ The warehouse integrates data from two source systems:
 
 Both datasets are provided as **CSV files**.
 
----
-
-# Tools
-
-- **PostgreSQL** – Data warehouse database
-- **DBeaver** – Database client
-- **Git & GitHub** – Version control
-- **Draw.io** – Architecture diagrams
-
----
-
-# Analytical Focus
-
-Example analyses performed on the warehouse include:
-
-- Customer behavior analysis
-- Product performance analysis
-- Sales trend analysis
 
 All analysis is performed using **SQL queries on the Gold layer**.
