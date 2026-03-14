@@ -1,3 +1,4 @@
+
 -- =============================================================
 -- 07 | CHANGE OVER TIME ANALYSIS
 -- Monthly sales trends and seasonality.
@@ -128,12 +129,12 @@ WITH customer_spending AS (
         SUM(f.sales_amount)              AS total_spending,
         MIN(f.order_date)                AS first_order,
         MAX(f.order_date)                AS last_order,
-        ( EXTRACT(YEAR  FROM AGE(MAX(f.order_date), MIN(f.order_date))) * 12
-        + EXTRACT(MONTH FROM AGE(MAX(f.order_date), MIN(f.order_date))) )::INT AS lifespan
+        ( (DATE_PART('year', MAX(f.order_date)) - DATE_PART('year', MIN(f.order_date)))::INT * 12
+        + (DATE_PART('month', MAX(f.order_date)) - DATE_PART('month', MIN(f.order_date)))::INT ) AS lifespan
     FROM gold.fact_sales f
     LEFT JOIN gold.dim_customers c ON f.customer_key = c.customer_key
     GROUP BY c.customer_key
-)s
+)
 SELECT customer_segment, COUNT(customer_key) AS total_customers
 FROM (
     SELECT
