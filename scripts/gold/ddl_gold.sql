@@ -9,12 +9,20 @@ Script Purpose:
 ===============================================================================
 */
 
+CREATE SCHEMA IF NOT EXISTS gold;
+
+-- =============================================================================
+-- DROP VIEWS (fact first because it depends on dimensions)
+-- =============================================================================
+
+DROP VIEW IF EXISTS gold.fact_sales;
+DROP VIEW IF EXISTS gold.dim_products;
+DROP VIEW IF EXISTS gold.dim_customers;
 
 
 -- =============================================================================
 -- Create Dimension: gold.dim_customers
 -- =============================================================================
-DROP VIEW IF EXISTS gold.dim_customers;
 
 CREATE VIEW gold.dim_customers AS
 SELECT
@@ -38,11 +46,9 @@ LEFT JOIN silver.erp_loc_a101 la
     ON ci.cst_key = la.cid;
 
 
-
 -- =============================================================================
 -- Create Dimension: gold.dim_products
 -- =============================================================================
-DROP VIEW IF EXISTS gold.dim_products;
 
 CREATE VIEW gold.dim_products AS
 SELECT
@@ -63,11 +69,9 @@ LEFT JOIN silver.erp_px_cat_g1v2 pc
 WHERE pn.prd_end_dt IS NULL;
 
 
-
 -- =============================================================================
 -- Create Fact Table: gold.fact_sales
 -- =============================================================================
-DROP VIEW IF EXISTS gold.fact_sales;
 
 CREATE VIEW gold.fact_sales AS
 SELECT
